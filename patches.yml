@@ -1,0 +1,12 @@
+patches:
+  - path: memfault-firmware-sdk/0001-mcumgr-group-allow-ncs-bm-mcumgr.patch
+    sha256sum: f8ff12cbeb78125b32b1ce1021507cb2320093075b68324181644289d8fe8b4a
+    module: modules/lib/memfault-firmware-sdk
+    author: hlord2000
+    email: kellyhlord@gmail.com
+    date: 2026-05-13
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Allow the Memfault MCUmgr group to be enabled by the nRF Connect SDK
+      Bare Metal MCUmgr shim.

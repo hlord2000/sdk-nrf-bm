@@ -25,6 +25,7 @@ static const ble_gap_conn_params_t ppcp = {
 static struct {
 	ble_gap_conn_params_t ppcp;
 	uint8_t retries;
+	uint8_t conn_param_update_pending : 1;
 } links[CONFIG_NRF_SDH_BLE_TOTAL_LINK_COUNT] = {
 	[0 ... CONFIG_NRF_SDH_BLE_TOTAL_LINK_COUNT - 1] = {
 		.retries = CONFIG_BLE_CONN_PARAMS_NEGOTIATION_RETRIES,
@@ -38,13 +39,19 @@ static void conn_params_negotiate(uint16_t conn_handle, int idx)
 	LOG_DBG("Negotiating desired parameters with peer %#x", conn_handle);
 
 	nrf_err = sd_ble_gap_conn_param_update(conn_handle, &links[idx].ppcp);
-	if (nrf_err) {
+	if (nrf_err == NRF_SUCCESS) {
+		links[idx].conn_param_update_pending = false;
+	} else if (nrf_err == NRF_ERROR_BUSY) {
+		links[idx].conn_param_update_pending = true;
+		LOG_DBG("Another procedure is ongoing, will retry");
+	} else {
 		LOG_ERR("Failed to request GAP connection parameters update, nrf_error %#x",
 			nrf_err);
 	}
 }
 
-static bool conn_params_can_agree(const ble_gap_conn_params_t *conn_params)
+static bool conn_params_can_agree(const ble_gap_conn_params_t *conn_params,
+				  const ble_gap_conn_params_t *desired)
 {
 	uint16_t peripheral_latency_min;
 	uint16_t peripheral_latency_max;
@@ -52,18 +59,20 @@ static bool conn_params_can_agree(const ble_gap_conn_params_t *conn_params)
 	uint16_t conn_sup_timeout_max;
 
 	/* The max_conn_interval field in the event contains the client connection interval */
-	if ((conn_params->max_conn_interval < ppcp.min_conn_interval) ||
-	    (conn_params->max_conn_interval > ppcp.max_conn_interval)) {
+	if ((conn_params->max_conn_interval < desired->min_conn_interval) ||
+	    (conn_params->max_conn_interval > desired->max_conn_interval)) {
 		LOG_DBG("Could not agree on connection interval %#x",
 			conn_params->max_conn_interval);
 		return false;
 	}
 
 	peripheral_latency_min =
-		CLAMP(ppcp.slave_latency - CONFIG_BLE_CONN_PARAMS_MAX_PERIPHERAL_LATENCY_DEVIATION,
+		CLAMP(desired->slave_latency -
+			      CONFIG_BLE_CONN_PARAMS_MAX_PERIPHERAL_LATENCY_DEVIATION,
 		      0, UINT16_MAX);
 	peripheral_latency_max =
-		CLAMP(ppcp.slave_latency + CONFIG_BLE_CONN_PARAMS_MAX_PERIPHERAL_LATENCY_DEVIATION,
+		CLAMP(desired->slave_latency +
+			      CONFIG_BLE_CONN_PARAMS_MAX_PERIPHERAL_LATENCY_DEVIATION,
 		      0, UINT16_MAX);
 
 	if (conn_params->slave_latency < peripheral_latency_min ||
@@ -73,10 +82,10 @@ static bool conn_params_can_agree(const ble_gap_conn_params_t *conn_params)
 	}
 
 	conn_sup_timeout_min =
-		CLAMP(ppcp.conn_sup_timeout - CONFIG_BLE_CONN_PARAMS_MAX_SUP_TIMEOUT_DEVIATION, 0,
+		CLAMP(desired->conn_sup_timeout - CONFIG_BLE_CONN_PARAMS_MAX_SUP_TIMEOUT_DEVIATION, 0,
 		      UINT16_MAX);
 	conn_sup_timeout_max =
-		CLAMP(ppcp.conn_sup_timeout + CONFIG_BLE_CONN_PARAMS_MAX_SUP_TIMEOUT_DEVIATION, 0,
+		CLAMP(desired->conn_sup_timeout + CONFIG_BLE_CONN_PARAMS_MAX_SUP_TIMEOUT_DEVIATION, 0,
 		      UINT16_MAX);
 
 	if (conn_params->conn_sup_timeout < conn_sup_timeout_min ||
@@ -92,12 +101,13 @@ static bool conn_params_can_agree(const ble_gap_conn_params_t *conn_params)
 static void on_connected(uint16_t conn_handle, int idx, const ble_gap_evt_connected_t *evt)
 {
 	links[idx].retries = CONFIG_BLE_CONN_PARAMS_NEGOTIATION_RETRIES;
+	links[idx].conn_param_update_pending = false;
 
 	/* Copy default ppcp */
 	memcpy(&links[idx].ppcp, &ppcp, sizeof(ble_gap_conn_params_t));
 
 	if (evt->role == BLE_GAP_ROLE_PERIPH) {
-		if (!conn_params_can_agree(&evt->conn_params)) {
+		if (!conn_params_can_agree(&evt->conn_params, &links[idx].ppcp)) {
 			conn_params_negotiate(conn_handle, idx);
 		}
 	}
@@ -113,13 +123,14 @@ static void on_conn_params_update(uint16_t conn_handle, int idx,
 		evt->conn_params.slave_latency,
 		evt->conn_params.conn_sup_timeout);
 
-	if (conn_params_can_agree(&evt->conn_params)) {
+	if (conn_params_can_agree(&evt->conn_params, &links[idx].ppcp)) {
 		const struct ble_conn_params_evt app_evt = {
 			.evt_type = BLE_CONN_PARAMS_EVT_UPDATED,
 			.conn_handle = conn_handle,
 			.conn_params = evt->conn_params,
 		};
 
+		links[idx].conn_param_update_pending = false;
 		ble_conn_params_event_send(&app_evt);
 		return;
 	}
@@ -131,6 +142,7 @@ static void on_conn_params_update(uint16_t conn_handle, int idx,
 	}
 
 	LOG_WRN("Could not agree on peer %#x connection params", conn_handle);
+	links[idx].conn_param_update_pending = false;
 	const struct ble_conn_params_evt app_evt = {
 		.evt_type = BLE_CONN_PARAMS_EVT_REJECTED,
 		.conn_handle = conn_handle,
@@ -148,17 +160,21 @@ static void on_ble_evt(const ble_evt_t *evt, void *ctx)
 {
 	const uint16_t conn_handle = evt->evt.common_evt.conn_handle;
 	const int idx = nrf_sdh_ble_idx_get(conn_handle);
+	bool retry_pending;
 
 	__ASSERT(idx >= 0, "Invalid idx %d for conn_handle %#x, evt_id %#x",
 		 idx, conn_handle, evt->header.evt_id);
 
+	retry_pending = links[idx].conn_param_update_pending;
+
 	switch (evt->header.evt_id) {
 	case BLE_GAP_EVT_CONNECTED:
 		on_connected(conn_handle, idx, &evt->evt.gap_evt.params.connected);
-		break;
+		return;
 
 	case BLE_GAP_EVT_DISCONNECTED:
-		break;
+		links[idx].conn_param_update_pending = false;
+		return;
 
 	case BLE_GAP_EVT_CONN_PARAM_UPDATE:
 		on_conn_params_update(conn_handle, idx, &evt->evt.gap_evt.params.conn_param_update);
@@ -167,6 +183,11 @@ static void on_ble_evt(const ble_evt_t *evt, void *ctx)
 	default:
 		/* Ignore */
 		break;
+	}
+
+	if (retry_pending && links[idx].conn_param_update_pending) {
+		links[idx].conn_param_update_pending = false;
+		conn_params_negotiate(conn_handle, idx);
 	}
 }
 NRF_SDH_BLE_OBSERVER(ble_observer, on_ble_evt, NULL, HIGH);

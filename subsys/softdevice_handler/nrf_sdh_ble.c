@@ -211,6 +211,19 @@ static int default_cfg_set(void)
 	}
 #endif /* NRF_SDH_BLE_GATT_MAX_MTU_SIZE != 23 */
 
+	/* Configure the GATTS HVN TX queue. */
+#if (CONFIG_NRF_SDH_BLE_GATTS_HVN_TX_QUEUE_SIZE != BLE_GATTS_HVN_TX_QUEUE_SIZE_DEFAULT)
+	memset(&ble_cfg, 0x00, sizeof(ble_cfg));
+	ble_cfg.conn_cfg.conn_cfg_tag = conn_cfg_tag;
+	ble_cfg.conn_cfg.params.gatts_conn_cfg.hvn_tx_queue_size =
+		CONFIG_NRF_SDH_BLE_GATTS_HVN_TX_QUEUE_SIZE;
+
+	err = sd_ble_cfg_set(BLE_CONN_CFG_GATTS, &ble_cfg, app_ram_start);
+	if (err) {
+		LOG_WRN("Failed to set BLE_CONN_CFG_GATTS, nrf_error %#x", err);
+	}
+#endif /* NRF_SDH_BLE_GATTS_HVN_TX_QUEUE_SIZE != BLE_GATTS_HVN_TX_QUEUE_SIZE_DEFAULT */
+
 	/* Configure number of custom UUIDS. */
 	memset(&ble_cfg, 0, sizeof(ble_cfg));
 	ble_cfg.common_cfg.vs_uuid_cfg.vs_uuid_count = CONFIG_NRF_SDH_BLE_VS_UUID_COUNT;
@@ -269,6 +282,24 @@ int nrf_sdh_ble_enable(uint8_t conn_cfg_tag)
 	if (err) {
 		LOG_ERR("Failed to enable BLE, nrf_error %#x", err);
 		return err;
+	}
+
+	if (IS_ENABLED(CONFIG_NRF_SDH_BLE_CONN_EVT_EXT)) {
+		ble_opt_t opt = {
+			.common_opt = {
+				.conn_evt_ext = {
+					.enable = 1,
+				},
+			},
+		};
+
+		err = sd_ble_opt_set(BLE_COMMON_OPT_CONN_EVT_EXT, &opt);
+		if (err) {
+			LOG_WRN("Failed to enable extended connection events, nrf_error %#x",
+				err);
+		} else {
+			LOG_INF("Extended BLE connection events enabled");
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_NRF_SDH_LOG_SD_INFO)) {

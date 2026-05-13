@@ -1,0 +1,20 @@
+/*
+ * Copyright (c) 2026 Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+ */
+
+&cpuapp_sram {
+	/delete-node/ sram@0;
+	/delete-node/ sram@4380;
+
+	softdevice_ram: sram@0 {
+		label = "softdevice_ram";
+		reg = <0x0 0x5380>;
+	};
+
+	app_ram: sram@5380 {
+		label = "app_ram";
+		reg = <0x5380 DT_SIZE_K(228)>;
+	};
+};

@@ -196,6 +196,13 @@ config NRF_SDH_BLE_GAP_EVENT_LENGTH
 	  The event length in milliseconds must be shorter than the connection interval.
 	  Must be 6 or larger when coded PHY is used.
 
+config NRF_SDH_BLE_CONN_EVT_EXT
+	bool "Enable extended BLE connection events"
+	help
+	  Allow the SoftDevice to dynamically extend a connection event when there is
+	  queued traffic and no conflicting radio activity. The maximum event duration
+	  is controlled by NRF_SDH_BLE_GAP_EVENT_LENGTH.
+
 config NRF_SDH_BLE_GATT_MAX_MTU_SIZE
 	int "Maximum MTU size"
 	range 23 $(UINT16_MAX)
@@ -205,6 +212,16 @@ config NRF_SDH_BLE_GATT_MAX_MTU_SIZE
 	  Increasing this number will increase the size of internal buffers in the SoftDevice
 	  and hence, the amount of dynamic RAM required by the SoftDevice.
 	  The minimum size is BLE_GATT_ATT_MTU_DEFAULT.
+
+config NRF_SDH_BLE_GATTS_HVN_TX_QUEUE_SIZE
+	int "GATTS HVN TX queue size"
+	range 1 255
+	default 1
+	help
+	  Minimum guaranteed number of Handle Value Notifications that can be queued for
+	  transmission. Increasing this lets applications enqueue multiple notifications
+	  before waiting for BLE_GATTS_EVT_HVN_TX_COMPLETE, at the cost of additional
+	  SoftDevice RAM.
 
 config NRF_SDH_BLE_GATTS_ATTR_TAB_SIZE
 	int "Attribute Table size in bytes"

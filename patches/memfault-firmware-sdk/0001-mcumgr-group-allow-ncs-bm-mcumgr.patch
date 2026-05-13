@@ -1,0 +1,11 @@
+diff --git a/ports/zephyr/Kconfig b/ports/zephyr/Kconfig
+index 3da2301..7e354d3 100644
+--- a/ports/zephyr/Kconfig
++++ b/ports/zephyr/Kconfig
+@@ -652,5 +652,5 @@ config MEMFAULT_MCUMGR_GRP
+ config MEMFAULT_MCUMGR_GRP
+         bool "Memfault MCUmgr group"
+-        depends on MCUMGR
++        depends on MCUMGR || NCS_BM_MCUMGR
+         default y
+         select MCUMGR_SMP_CBOR_MIN_DECODING_LEVEL_2

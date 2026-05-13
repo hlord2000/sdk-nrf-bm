@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2026 Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+ */
+
+MEMFAULT_METRICS_KEY_DEFINE(tput_tx_bytes, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_tx_notifications, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_rx_bytes, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_rx_writes, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_bps, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_duration_ms, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_att_mtu, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_payload_len, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_tx_window, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_conn_interval_us, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_data_length_tx, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_data_length_rx, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_phy_tx, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_phy_rx, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_resource_errors, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_hvx_errors, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(tput_partial_notifications, kMemfaultMetricType_Unsigned)
